@@ -85,17 +85,32 @@ class ESMADownloader:
 
         Raises:
             ValueError: If there are less then link_pos+1 links.
+            ValueError: If the result element is not found in the XML.
+            ValueError: If the download link element is not found.
         """
         root = ET.fromstring(xml_bytes)
-        number_docs = int(root.find(".//result").attrib["numFound"])
+
+        result = root.find(".//result")
+        if result is None:
+            raise ValueError("Was not possible to find result element in XML")
+
+        number_docs = int(result.attrib["numFound"])
         if number_docs < (link_pos + 1):
-            logger.error("Expected at least 2 docs, found %d", number_docs)
+            logger.error(
+                "Expected at least %d docs, found %d",
+                link_pos + 1,
+                number_docs,
+            )
             raise ValueError("Not enough docs found")
 
         docs = root.findall(".//doc")
         dltins = [
             d
             for d in docs
-            if d.find('.//str[@name="file_type"]').text == "DLTINS"
+            if (ft := d.find('.//str[@name="file_type"]')) is not None
+            and ft.text == "DLTINS"
         ]
-        return dltins[link_pos].find('.//str[@name="download_link"]').text
+        link_element = dltins[link_pos].find('.//str[@name="download_link"]')
+        if link_element is None or link_element.text is None:
+            raise ValueError("Was not possible to find download link")
+        return link_element.text
